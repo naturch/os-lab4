@@ -60,13 +60,13 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
-  // Allocate two pages at the next page boundary.
-  // Make the first inaccessible.  Use the second as the user stack.
-  sz = PGROUNDUP(sz);
-  if((sz = allocuvm(pgdir, sz, sz + 2*PGSIZE)) == 0)
+  //스택 한 페이지만 할당
+  sz = KERNBASE-1; //가상 메모리 끝 아래
+  if((sz = allocuvm(pgdir, sz - PGSIZE, sz )) == 0) 
     goto bad;
-  clearpteu(pgdir, (char*)(sz - 2*PGSIZE));
-  sp = sz;
+
+  sz=PGROUNDDOWN(0x3000);
+  sp = KERNBASE - 1;
 
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
@@ -84,8 +84,11 @@ exec(char *path, char **argv)
   ustack[2] = sp - (argc+1)*4;  // argv pointer
 
   sp -= (3+argc+1) * 4;
-  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0)
+  if(copyout(pgdir, sp, ustack, (3+argc+1)*4) < 0){
+    cprintf("[exec] copyout of ustack failed\n");
     goto bad;
+
+  }
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)

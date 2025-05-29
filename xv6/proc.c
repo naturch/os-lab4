@@ -8,6 +8,11 @@
 #include "spinlock.h"
 #include "debug.h"
 
+pte_t* walkpgdir(pde_t *pgdir, const void *va, int alloc); //함수 선언
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
+
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -537,4 +542,32 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+ //추가
+int printpt(int pid) {
+    struct proc *p;
+    pde_t *pgdir;
+    pte_t *pte;
+    uint a;
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p->pid == pid)
+            break;
+    }
+    if(p == 0 || p->pid != pid)
+        return -1;
+    pgdir = p->pgdir;
+    cprintf("START PAGE TABLE (pid %d)\n", pid);
+    for(a = 0; a < KERNBASE; a += PGSIZE) {
+        pte = walkpgdir(pgdir, (void *)a, 0); 
+        if(pte && (*pte & PTE_P)) {
+            cprintf("%x P %c %c %x\n", a >> 12, //가상 주소 페이지 번호 
+                (*pte & PTE_U) ? 'U' : 'K', //user or kernel
+                (*pte & PTE_W) ? 'W' : '-', //읽기 or 쓰기
+                PTE_ADDR(*pte)>>12); //프레임
+        }
+    }
+    
+    cprintf("END PAGE TABLE\n");
+    return 0;
 }

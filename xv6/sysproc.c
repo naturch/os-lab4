@@ -7,6 +7,8 @@
 #include "mmu.h"
 #include "proc.h"
 
+int printpt(int pid);  // 추가
+
 int
 sys_fork(void)
 {
@@ -41,6 +43,17 @@ sys_getpid(void)
 {
   return myproc()->pid;
 }
+ //추가
+int
+sys_printpt(void)
+{
+  int pid;
+  if (argint(0, &pid) < 0)
+    return -1;
+  printpt(pid);
+  return 0;
+}
+
 
 int
 sys_sbrk(void)

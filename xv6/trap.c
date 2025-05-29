@@ -9,6 +9,11 @@
 #include "spinlock.h"
 #include "i8254.h"
 
+//추가
+pte_t* walkpgdir(pde_t *pgdir, const void *va, int alloc);
+int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
@@ -81,6 +86,29 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+
+  //추가
+  case T_PGFLT: 
+      // 페이지 폴트 발생 → 접근한 주소 가져오기
+      uint va = PGROUNDDOWN(rcr2());
+     // 물리 메모리 한 페이지 할당
+      char *mem = kalloc();
+      if(mem == 0){
+        cprintf("[trap] out of memory at 0x%x\n", va);
+        break;
+      }
+
+      // 페이지 내용 초기화 후 매핑
+      memset(mem, 0, PGSIZE);
+      mappages(myproc()->pgdir, (char*)va, PGSIZE, V2P(mem), PTE_W | PTE_U | PTE_P);
+      walkpgdir( myproc()->pgdir, (char*)va, 0);
+
+      // TLB flush (페이지 테이블 갱신 반영)
+      lcr3(V2P(myproc()->pgdir));
+      break;
+  
+
+
 
   //PAGEBREAK: 13
   default:

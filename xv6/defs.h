@@ -24,6 +24,8 @@ void            panic(char*) __attribute__((noreturn));
 
 // exec.c
 int             exec(char*, char**);
+//추가
+int             prinfpt(int pid);
 
 // file.c
 struct file*    filealloc(void);
