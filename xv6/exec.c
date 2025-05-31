@@ -64,12 +64,12 @@ exec(char *path, char **argv)
 
   //스택 한 페이지만 할당
   
-  /*sz = KERNBASE-1; //가상 메모리 끝 아래
+  sz = KERNBASE-1; //가상 메모리 끝 아래
   if((sz = allocuvm(pgdir, sz - PGSIZE, sz )) == 0) 
     goto bad;
 
   sz=PGROUNDDOWN(0x3000);
-  sp = KERNBASE - 1;*/
+  sp = KERNBASE - 1;
 
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
