@@ -78,10 +78,6 @@ cprintf(char *fmt, ...)
     if(c == 0)
       break;
     switch(c){
-    //추가
-    case 'c':
-      consputc(*argp++); //
-      break;
     case 'd':
       printint(*argp++, 10, 1);
       break;

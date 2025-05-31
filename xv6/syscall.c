@@ -17,9 +17,10 @@
 int
 fetchint(uint addr, int *ip)
 {
-
+  //커널 영역 침범 방지
   if(addr >=KERNBASE || addr+4 > KERNBASE)
     return -1;
+  
   *ip = *(int*)(addr);
   return 0;
 }
@@ -32,10 +33,12 @@ fetchstr(uint addr, char **pp)
 {
   char *s, *ep;
 
+  // 잘못된 접근 방지
   if(addr >=KERNBASE)
     return -1;
+
   *pp = (char*)addr;
-  ep = (char*)KERNBASE;
+  ep = (char*)KERNBASE; //상한선은 가상 메모리 한계로 설정
   for(s = *pp; s < ep; s++){
     if(*s == 0)
       return s - *pp;
@@ -60,6 +63,8 @@ argptr(int n, char **pp, int size)
  
   if(argint(n, &i) < 0)
     return -1;
+    
+  //size만큼 공간 확보 + 커널 영역 접근 방지
   if(size < 0 || (uint)i >= KERNBASE || (uint)i+size > KERNBASE)
     return -1;
   *pp = (char*)i;

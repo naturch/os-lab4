@@ -47,11 +47,11 @@ sys_getpid(void)
 int
 sys_printpt(void)
 {
-  int pid;
-  if (argint(0, &pid) < 0)
+  int pid =0;
+  if (argint(0, &pid) < 0) //사용자에게 pid 넘겨받지 못하면 실패
     return -1;
-  printpt(pid);
-  return 0;
+  
+  return printpt(pid);
 }
 
 

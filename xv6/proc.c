@@ -543,31 +543,47 @@ procdump(void)
     cprintf("\n");
   }
 }
- //추가
-int printpt(int pid) {
-    struct proc *p;
-    pde_t *pgdir;
-    pte_t *pte;
-    uint a;
 
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-        if(p->pid == pid)
-            break;
-    }
-    if(p == 0 || p->pid != pid)
-        return -1;
-    pgdir = p->pgdir;
-    cprintf("START PAGE TABLE (pid %d)\n", pid);
-    for(a = 0; a < KERNBASE; a += PGSIZE) {
-        pte = walkpgdir(pgdir, (void *)a, 0); 
-        if(pte && (*pte & PTE_P)) {
-            cprintf("%x P %c %c %x\n", a >> 12, //가상 주소 페이지 번호 
-                (*pte & PTE_U) ? 'U' : 'K', //user or kernel
-                (*pte & PTE_W) ? 'W' : '-', //읽기 or 쓰기
-                PTE_ADDR(*pte)>>12); //프레임
-        }
-    }
-    
-    cprintf("END PAGE TABLE\n");
-    return 0;
+int
+printpt(int pid)
+{
+  struct proc *p = 0;
+  pte_t *pte;
+  pde_t *pgdir;
+  uint addr;
+
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if (p->pid == pid)
+      break;
+  }
+  if (p == &ptable.proc[NPROC] || p->state == UNUSED) {
+    release(&ptable.lock);
+    return -1;
+  }
+
+  pgdir = p->pgdir;
+  release(&ptable.lock);
+
+  cprintf("START PAGE TABLE (pid %d)\n", pid);
+
+  for (addr = 0; addr < KERNBASE; addr += PGSIZE) {
+    pte = walkpgdir(pgdir, (void*)addr, 0);
+    if (!pte || !(*pte & PTE_P)) continue;
+
+    // 플래그 문자열 생성
+    const char *access = (*pte & PTE_U) ? "U" : "K";
+    const char *write = (*pte & PTE_W) ? "W" : "-";
+
+    // 전체 문자열 조합 
+    cprintf("%x P %s %s %x\n",
+      addr >> 12,               // 가상 페이지 번호 (VA >> 12)
+      access,                   // U or K
+      write,                    // W or -
+      PTE_ADDR(*pte) >> 12      // 물리 페이지 번호 (PA >> 12)
+    );
+  }
+
+  cprintf("END PAGE TABLE\n");
+  return 0;
 }

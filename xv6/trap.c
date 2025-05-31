@@ -86,26 +86,36 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  
+  case T_PGFLT: {
+    uint fault_addr = PGROUNDDOWN(rcr2());
+    struct proc *p = myproc();
 
-  //추가
-  case T_PGFLT: 
-      // 페이지 폴트 발생 → 접근한 주소 가져오기
-      uint va = PGROUNDDOWN(rcr2());
-     // 물리 메모리 한 페이지 할당
-      char *mem = kalloc();
-      if(mem == 0){
-        cprintf("[trap] out of memory at 0x%x\n", va);
-        break;
-      }
-
-      // 페이지 내용 초기화 후 매핑
-      memset(mem, 0, PGSIZE);
-      mappages(myproc()->pgdir, (char*)va, PGSIZE, V2P(mem), PTE_W | PTE_U | PTE_P);
-      walkpgdir( myproc()->pgdir, (char*)va, 0);
-
-      // TLB flush (페이지 테이블 갱신 반영)
-      lcr3(V2P(myproc()->pgdir));
+    // 페이지가 이미 매핑되어 있으면 무시
+    pte_t *pte = walkpgdir(p->pgdir, (void *)fault_addr, 0);
+    if (pte && (*pte & PTE_P))
       break;
+
+    // 새 물리 메모리 할당
+    char *new_mem = kalloc();
+    if (!new_mem) {
+      cprintf("page alloc fail at %x\n", fault_addr);
+      break;
+    }
+
+    memset(new_mem, 0, PGSIZE);
+
+    // 페이지 매핑
+    if (mappages(p->pgdir, (void *)fault_addr, PGSIZE, V2P(new_mem), PTE_W | PTE_U) < 0) {
+      kfree(new_mem);  // 실패했으면 할당 회수
+      break;
+    }
+
+    // TLB 플러싱
+    lcr3(V2P(p->pgdir));
+    break;
+  }
+
   
 
 
