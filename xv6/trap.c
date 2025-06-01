@@ -91,23 +91,30 @@ trap(struct trapframe *tf)
     uint fault_addr = PGROUNDDOWN(rcr2());
     struct proc *p = myproc();
 
+    // 커널 영역 접근 시 kill
+    if ( fault_addr >= KERNBASE) {
+      cprintf("Invalid access at %x\n", fault_addr);
+      p->killed = 1;
+      break;
+    }
     // 페이지가 이미 매핑되어 있으면 무시
     pte_t *pte = walkpgdir(p->pgdir, (void *)fault_addr, 0);
     if (pte && (*pte & PTE_P))
       break;
 
     // 새 물리 메모리 할당
-    char *new_mem = kalloc();
-    if (!new_mem) {
-      cprintf("page alloc fail at %x\n", fault_addr);
+    char *mem = kalloc();
+    if (!mem) {
+      p->killed = 1;
       break;
     }
 
-    memset(new_mem, 0, PGSIZE);
+    memset(mem, 0, PGSIZE);
 
     // 페이지 매핑
-    if (mappages(p->pgdir, (void *)fault_addr, PGSIZE, V2P(new_mem), PTE_W | PTE_U) < 0) {
-      kfree(new_mem);  // 실패했으면 할당 회수
+    if (mappages(p->pgdir, (void *)fault_addr, PGSIZE, V2P(mem), PTE_W | PTE_U) < 0) {
+      kfree(mem);  // 실패했으면 할당 회수
+      p->killed = 1;
       break;
     }
 
@@ -128,6 +135,7 @@ trap(struct trapframe *tf)
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
     }
+
     // In user space, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",

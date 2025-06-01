@@ -269,18 +269,20 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   if(newsz >= oldsz)
     return oldsz;
-
   a = PGROUNDUP(newsz);
+
   for(; a  < oldsz; a += PGSIZE){
     pte = walkpgdir(pgdir, (char*)a, 0);
     if(!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
-    else if((*pte & PTE_P) != 0){
-      pa = PTE_ADDR(*pte);
-      if(pa == 0)
-        panic("kfree");
-      char *v = P2V(pa);
-      kfree(v);
+    else{
+      if(*pte & PTE_P){
+        pa = PTE_ADDR(*pte);
+        if (pa ==0)
+          panic("kfree");
+        char *v = P2V(pa);
+        kfree(v);
+      }
       *pte = 0;
     }
   }
@@ -331,11 +333,16 @@ copyuvm(pde_t *pgdir, uint sz)
 
   if((d = setupkvm()) == 0)
     return 0;
+    
   for(i = 0; i < KERNBASE; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0){
       continue;
     }
     if(!(*pte & PTE_P)){
+      pte_t *child_pte = walkpgdir(d , (void *)i, 1);
+      if (child_pte ==0)
+        goto bad;
+      *child_pte = 0;
       continue;
     }
     pa = PTE_ADDR(*pte);
