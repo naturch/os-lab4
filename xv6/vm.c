@@ -269,20 +269,18 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   if(newsz >= oldsz)
     return oldsz;
-  a = PGROUNDUP(newsz);
 
+  a = PGROUNDUP(newsz);
   for(; a  < oldsz; a += PGSIZE){
     pte = walkpgdir(pgdir, (char*)a, 0);
     if(!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
-    else{
-      if(*pte & PTE_P){
-        pa = PTE_ADDR(*pte);
-        if (pa ==0)
-          panic("kfree");
-        char *v = P2V(pa);
-        kfree(v);
-      }
+    else if((*pte & PTE_P) != 0){
+      pa = PTE_ADDR(*pte);
+      if(pa == 0)
+        panic("kfree");
+      char *v = P2V(pa);
+      kfree(v);
       *pte = 0;
     }
   }
@@ -323,6 +321,8 @@ clearpteu(pde_t *pgdir, char *uva)
 
 // Given a parent process's page table, create a copy
 // of it for a child.
+
+//자식 프로세스도 lazy allocation 되도록 수정
 pde_t*
 copyuvm(pde_t *pgdir, uint sz)
 {
@@ -333,16 +333,19 @@ copyuvm(pde_t *pgdir, uint sz)
 
   if((d = setupkvm()) == 0)
     return 0;
-    
+
   for(i = 0; i < KERNBASE; i += PGSIZE){
+    //부모 페이지 테이블에서 pte 가져오기
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0){
-      continue;
+      continue; //매핑되지 않은 페이지는 건너뜀
     }
-    if(!(*pte & PTE_P)){
+    //실제 물리 메모리가 아직 없는 경우(lazy 상태)
+    if(!(*pte & PTE_P)){ 
+      //자식 쪽 페이지 테이블 엔트리를 0으로 세팅 (lazy 유지)
       pte_t *child_pte = walkpgdir(d , (void *)i, 1);
       if (child_pte ==0)
         goto bad;
-      *child_pte = 0;
+      *child_pte = *pte; //flags 만 그대로 복사
       continue;
     }
     pa = PTE_ADDR(*pte);

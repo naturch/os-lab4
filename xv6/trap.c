@@ -105,7 +105,8 @@ trap(struct trapframe *tf)
     // 새 물리 메모리 할당
     char *mem = kalloc();
     if (!mem) {
-      p->killed = 1;
+      cprintf("page alloc fail at %x\n", fault_addr);
+      p->killed = 1; //메모리 부족 시 프로세스 kill
       break;
     }
 
@@ -114,7 +115,7 @@ trap(struct trapframe *tf)
     // 페이지 매핑
     if (mappages(p->pgdir, (void *)fault_addr, PGSIZE, V2P(mem), PTE_W | PTE_U) < 0) {
       kfree(mem);  // 실패했으면 할당 회수
-      p->killed = 1;
+      p->killed = 1; //실패 시 프로세스 kill
       break;
     }
 

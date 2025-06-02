@@ -75,17 +75,17 @@ sys_sbrk(void)
     if (newsz > oldsz) //오버플로우 방지
     return -1;
 
-    //PGROUNDUP된 boundary 범위만 unmap
+    //unmap (할당된 주소가 있다면 회수)
     if(deallocuvm(curproc->pgdir, PGROUNDUP(oldsz), PGROUNDUP(newsz)) == 0)
       return -1;
     curproc -> sz = newsz;
     return addr;
   }
-  
-  if (n > 0){ // sz+n이 커널 영역 넘어가면 안됨
-    if (curproc ->sz + n >= KERNBASE) //lazy allocation -> 물리메모리 할당 안함함
-      return -1;
-  }
+
+  //lazy (sz만 증가시킴)
+  if (curproc ->sz + n >= KERNBASE)
+    return -1;
+
   curproc ->sz +=n;
   return addr;
 }
